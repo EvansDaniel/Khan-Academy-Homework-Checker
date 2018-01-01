@@ -17,8 +17,8 @@ import multiprocessing as mp
 import json
 
 AUTH_TOKEN_FILE='auth_tokens.json'
-CONSUMER_KEY = 'gMCe7huanHVnBdvW'
-CONSUMER_SECRET = 'hm7GXAVKytnQp4V2'
+CONSUMER_KEY = ''
+CONSUMER_SECRET = ''
 SERVER_URL = 'http://www.khanacademy.org'
 DEFAULT_API_RESOURCE = '/api/v1/user'
 TOKEN_TEST_URL = '/api/v1/user'
