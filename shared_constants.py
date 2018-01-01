@@ -1,1 +1,0 @@
-VERIFIER_FILE = 'verifier.json'
