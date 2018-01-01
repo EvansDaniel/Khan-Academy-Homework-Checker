@@ -17,15 +17,18 @@ import multiprocessing as mp
 import json
 
 AUTH_TOKEN_FILE='auth_tokens.json'
-CONSUMER_KEY = ''
-CONSUMER_SECRET = ''
+# TODO add consumer key and consumer secret to credentials.json
+CONSUMER_KEY = 'gMCe7huanHVnBdvW'
+CONSUMER_SECRET = 'hm7GXAVKytnQp4V2'
 SERVER_URL = 'http://www.khanacademy.org'
-DEFAULT_API_RESOURCE = '/api/v1/user'
 TOKEN_TEST_URL = '/api/v1/user'
+DEFAULT_API_RESOURCE = TOKEN_TEST_URL
 
 CREDENTIALS_FILE='.credentials.json'
 CREDENTIAL_EMAIL_KEY = 'email'
 CREDENTIAL_PASSWORD_KEY = 'password'
+CREDENTIAL_CONSUMER_KEY = 'consumer_key'
+CREDENTIAL_CONSUMER_SECRET_KEY = 'consumer_secret'
 
 CALLBACK_BASE = '127.0.0.1'
 VERIFIER = None
@@ -77,8 +80,12 @@ def create_callback_server(port):
 
 # Make an authenticated API call using the given rauth session.
 def get_api_resource(session, params={}, resource=DEFAULT_API_RESOURCE):
+    # TODO: remove input stuff
     resource_url = resource or input("Resource relative url (e.g. %s): " %
         DEFAULT_API_RESOURCE)
+
+    if not resource_url:
+        resource_url = DEFAULT_API_RESOURCE
 
     url = SERVER_URL + resource_url
     split_url = url.split('?', 1)
@@ -94,25 +101,28 @@ def get_api_resource(session, params={}, resource=DEFAULT_API_RESOURCE):
 
     return response and response.json()
 
-def get_email_password_from_credentials():
+def get_credentials():
     if os.path.isfile(CREDENTIALS_FILE):
         with open(CREDENTIALS_FILE, 'r') as file:
             try:
                 data = json.load(file)
-                if CREDENTIAL_EMAIL_KEY in data and CREDENTIAL_PASSWORD_KEY in data:
-                    return [data[CREDENTIAL_EMAIL_KEY], data[CREDENTIAL_PASSWORD_KEY]]
+                if CREDENTIAL_EMAIL_KEY in data and CREDENTIAL_PASSWORD_KEY in data and CREDENTIAL_CONSUMER_KEY in data and CREDENTIAL_CONSUMER_SECRET_KEY in data: 
+                    return data
                 else:
-                    print('Invalid %s: no pass or email key' % (CREDENTIALS_FILE))
-                    return [None, None]
+                    print('Invalid keys in %s. Need %s, %s, %s, and %s' 
+                        % (CREDENTIALS_FILE, CREDENTIAL_EMAIL_KEY, CREDENTIAL_PASSWORD_KEY, CREDENTIAL_CONSUMER_KEY, CREDENTIAL_CONSUMER_SECRET_KEY))
+                    print('See README.md for necessary credentials')
+                    return None
             except:
-                print('Invalid %s. Must provide that file with valid %s and %s keys' 
-                    % (CREDENTIALS_FILE, CREDENTIAL_EMAIL_KEY, CREDENTIAL_PASSWORD_KEY))
-                return [None, None]
+                print('Invalid %s. Must provide that file with valid keys' 
+                    % (CREDENTIALS_FILE))
+                print('See README.md for necessary credentials')
+                return None
     else:
         print('No %s provided' % (CREDENTIALS_FILE))
-        return [None, None]
+        return None
 
-def authorize_url_sign_in(authorize_url, server_process):
+def authorize_url_sign_in(authorize_url, server_process, credentials_dict):
     print('Running headless browser to log in')
     kaEmail_S = 'input[type=text]'
     kaPass_S = 'input[type=password]'
@@ -125,15 +135,9 @@ def authorize_url_sign_in(authorize_url, server_process):
     driver.get(authorize_url)
     print('Getting authorize url')
 
-    email, password = get_email_password_from_credentials()
-    if email is None or password is None:
-        print('No email or password from %s. Exiting...' % (CREDENTIALS_FILE))
-        server_process.terminate()
-        sys.exit(1)
-
     print('Sending credential info')
-    driver.find_element_by_css_selector(kaEmail_S).send_keys(email)
-    driver.find_element_by_css_selector(kaPass_S).send_keys(password)
+    driver.find_element_by_css_selector(kaEmail_S).send_keys(credentials_dict[CREDENTIAL_EMAIL_KEY])
+    driver.find_element_by_css_selector(kaPass_S).send_keys(credentials_dict[CREDENTIAL_PASSWORD_KEY])
     driver.find_element_by_css_selector(kaLoginButton_S).click()
     sleep(5)
     # Accept oauth button
@@ -148,6 +152,9 @@ def write_auth_tokens(request_token, secret_request_token, VERIFIER):
             "VERIFIER":VERIFIER
         }, outfile)
         print('Renewed auth tokens cached')
+
+def num_videos_watched(request_token, secret_request_token, VERIFIER):
+    pass
 
 def auth_tokens_expired(session):
     print('checking auth tokens expiration...')
@@ -182,6 +189,15 @@ def get_free_tcp_port():
     return port
 
 def renew_tokens(service):
+    credentials_dict = get_credentials()
+    if credentials_dict is None:
+        print('No improper credentials from %s. Exiting...' % (CREDENTIALS_FILE))
+        server_process.terminate()
+        sys.exit(1)
+
+    global CONSUMER_KEY, CONSUMER_SECRET, SERVER_URL, VERIFIER
+    CONSUMER_KEY = credentials_dict[CREDENTIAL_CONSUMER_KEY]
+    CONSUMER_SECRET = credentials_dict[CREDENTIAL_CONSUMER_SECRET_KEY]
 
     if os.path.isfile(AUTH_TOKEN_FILE):
         os.remove(AUTH_TOKEN_FILE)
@@ -194,11 +210,6 @@ def renew_tokens(service):
     SERVER_PROCESS = mp.Process(target=start_server, args=(port,))
     SERVER_PROCESS.start()
 
-    global CONSUMER_KEY, CONSUMER_SECRET, SERVER_URL, VERIFIER
-    CONSUMER_KEY = CONSUMER_KEY or input("consumer key: ")
-    CONSUMER_SECRET = CONSUMER_SECRET or input("consumer secret: ")
-    SERVER_URL = SERVER_URL or input("server base url: ")
-
     # Create an OAuth1Service using rauth.
     request_token, secret_request_token = service.get_request_token(
         params={'oauth_callback': 'http://%s:%d/' %
@@ -207,7 +218,7 @@ def renew_tokens(service):
     authorize_url = service.get_authorize_url(request_token)
     # Uncomment for manual authorization
     # webbrowser.open(authorize_url)
-    authorize_url_sign_in(authorize_url, SERVER_PROCESS)
+    authorize_url_sign_in(authorize_url, SERVER_PROCESS, credentials_dict)
     print('Waiting for server to respond and write verifier file ')
 
     tries = 0
