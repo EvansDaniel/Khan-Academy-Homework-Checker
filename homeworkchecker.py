@@ -24,12 +24,15 @@ DEFAULT_API_RESOURCE = '/api/v1/user'
 TOKEN_TEST_URL = '/api/v1/user'
 
 CREDENTIALS_FILE='.credentials.json'
+CREDENTIAL_EMAIL_KEY = 'email'
+CREDENTIAL_PASSWORD_KEY = 'password'
 
 CALLBACK_BASE = '127.0.0.1'
 VERIFIER = None
 OAUTH_VERIFIER_KEY = 'oauth_verifier'
 VERIFIER_FILE = 'verifier.json'
 PORT = 8000
+SERVER_PROCESS = None
 
 
 def write_verifier(VERIFIER):
@@ -92,16 +95,24 @@ def get_api_resource(session, params={}, resource=DEFAULT_API_RESOURCE):
     return response and response.json()
 
 def get_email_password_from_credentials():
-    # TODO: check if the file exists and that it is valid JSON
-    with open(CREDENTIALS_FILE, 'r') as file:
-        data = json.load(file)
-        if 'email' in data and 'pass' in data:
-            return [data['email'], data['pass']]
-        else:
-            print('Invalid credentials json: no pass or email key')
-            return [None,None]
+    if os.path.isfile(CREDENTIALS_FILE):
+        with open(CREDENTIALS_FILE, 'r') as file:
+            try:
+                data = json.load(file)
+                if CREDENTIAL_EMAIL_KEY in data and CREDENTIAL_PASSWORD_KEY in data:
+                    return [data[CREDENTIAL_EMAIL_KEY], data[CREDENTIAL_PASSWORD_KEY]]
+                else:
+                    print('Invalid %s: no pass or email key' % (CREDENTIALS_FILE))
+                    return [None, None]
+            except:
+                print('Invalid %s. Must provide that file with valid %s and %s keys' 
+                    % (CREDENTIALS_FILE, CREDENTIAL_EMAIL_KEY, CREDENTIAL_PASSWORD_KEY))
+                return [None, None]
+    else:
+        print('No %s provided' % (CREDENTIALS_FILE))
+        return [None, None]
 
-def authorize_url_sign_in(authorize_url):
+def authorize_url_sign_in(authorize_url, server_process):
     print('Running headless browser to log in')
     kaEmail_S = 'input[type=text]'
     kaPass_S = 'input[type=password]'
@@ -112,10 +123,15 @@ def authorize_url_sign_in(authorize_url):
     driver = webdriver.Chrome(chrome_options=chrome_options)
     # Call oauth with authorize url
     driver.get(authorize_url)
+    print('Getting authorize url')
+
     email, password = get_email_password_from_credentials()
-    # TODO: do more than print in this case 
-    if email == None or password == None:
-        print('No email or password stored')
+    if email is None or password is None:
+        print('No email or password from %s. Exiting...' % (CREDENTIALS_FILE))
+        server_process.terminate()
+        sys.exit(1)
+
+    print('Sending credential info')
     driver.find_element_by_css_selector(kaEmail_S).send_keys(email)
     driver.find_element_by_css_selector(kaPass_S).send_keys(password)
     driver.find_element_by_css_selector(kaLoginButton_S).click()
@@ -131,7 +147,7 @@ def write_auth_tokens(request_token, secret_request_token, VERIFIER):
             "secret_request_token":secret_request_token,
             "VERIFIER":VERIFIER
         }, outfile)
-        print('Renewed auth tokens written')
+        print('Renewed auth tokens cached')
 
 def num_videos_watched(request_token, secret_request_token, VERIFIER):
     pass
@@ -169,16 +185,17 @@ def get_free_tcp_port():
     return port
 
 def renew_tokens(service):
-    import os
-    # Remove files so as to wait for server to create them
+
     if os.path.isfile(AUTH_TOKEN_FILE):
         os.remove(AUTH_TOKEN_FILE)
+    # Remove files so we can wait for server to create verifier file
+    # without race condition
     if os.path.isfile(VERIFIER_FILE):
         os.remove(VERIFIER_FILE)
 
     port = get_free_tcp_port()
-    p = mp.Process(target=start_server, args=(port,))
-    p.start()
+    SERVER_PROCESS = mp.Process(target=start_server, args=(port,))
+    SERVER_PROCESS.start()
 
     global CONSUMER_KEY, CONSUMER_SECRET, SERVER_URL, VERIFIER
     CONSUMER_KEY = CONSUMER_KEY or input("consumer key: ")
@@ -193,7 +210,7 @@ def renew_tokens(service):
     authorize_url = service.get_authorize_url(request_token)
     # Uncomment for manual authorization
     # webbrowser.open(authorize_url)
-    authorize_url_sign_in(authorize_url)
+    authorize_url_sign_in(authorize_url, SERVER_PROCESS)
     print('Waiting for server to respond and write verifier file ')
 
     tries = 0
@@ -215,7 +232,7 @@ def renew_tokens(service):
         params=params)
     print('Session retrieved from renewed tokens')
     # End the server process
-    p.terminate()
+    SERVER_PROCESS.terminate()
 
     return session
 
@@ -266,7 +283,7 @@ def check_homework():
 
     # Repeatedly prompt user for a resource and make authenticated API calls.
     if session is None:
-        print('Failed to authenticate')
+        print('Failed to authenticate. Invalid session retreived')
         return;
 
     while(True):
