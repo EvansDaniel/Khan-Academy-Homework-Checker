@@ -1,4 +1,3 @@
-import cgi
 import rauth
 import http.server
 import socketserver
@@ -7,24 +6,71 @@ import webbrowser
 from time import sleep
 from selenium import webdriver
 import json
-import cgi
+import socket
 import os.path 
-import http.server
-import socketserver
+import os
 from selenium.webdriver.chrome.options import Options
+import subprocess
+import sys
+import cgi
+import multiprocessing as mp
+import json
 
-import shared_constants
-
-CALLBACK_BASE = '127.0.0.1'
-VERIFIER = None
 AUTH_TOKEN_FILE='auth_tokens.json'
 CONSUMER_KEY = 'gMCe7huanHVnBdvW'
 CONSUMER_SECRET = 'hm7GXAVKytnQp4V2'
 SERVER_URL = 'http://www.khanacademy.org'
 DEFAULT_API_RESOURCE = '/api/v1/user'
-VERIFIER = None
+TOKEN_TEST_URL = '/api/v1/user'
+
 CREDENTIALS_FILE='.credentials.json'
-TOKEN_TEST_URL = '/api/v1/playlists'
+
+CALLBACK_BASE = '127.0.0.1'
+VERIFIER = None
+OAUTH_VERIFIER_KEY = 'oauth_verifier'
+VERIFIER_FILE = 'verifier.json'
+PORT = 8000
+
+
+def write_verifier(VERIFIER):
+    with open(VERIFIER_FILE, 'w') as outfile:
+        json.dump({
+            "VERIFIER":VERIFIER
+        }, outfile)
+
+# Create the callback server that's used to set the oauth verifier after the
+# request token is authorized.
+def create_callback_server(port):
+    class CallbackHandler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self):
+            global VERIFIER
+            
+            #print('path',self.path)
+            if len(self.path.split('?', 1)) == 2:
+
+                params = cgi.parse_qs(self.path.split('?', 1)[1],
+                    keep_blank_values=False)
+
+                #print('params',params)
+
+                # Make sure correct query paramters are in url
+                if OAUTH_VERIFIER_KEY in params and len(params[OAUTH_VERIFIER_KEY]) >= 1:
+                    VERIFIER = params[OAUTH_VERIFIER_KEY][0]
+
+                    print('Server writing verifier file')
+                    write_verifier(VERIFIER)
+
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/plain')
+                    self.end_headers()
+                    self.wfile.write(bytes("You can now close this window", "utf-8"))
+                else:
+                    print('Given invalid oauth path/query params ->', 'path', self.path, 'params', params)
+            else:
+                print('Received invalid path', self.path)
+
+    server = socketserver.TCPServer((CALLBACK_BASE, port), CallbackHandler)
+    return server
 
 # Make an authenticated API call using the given rauth session.
 def get_api_resource(session, params={}, resource=DEFAULT_API_RESOURCE):
@@ -39,13 +85,10 @@ def get_api_resource(session, params={}, resource=DEFAULT_API_RESOURCE):
         url = split_url[0]
         params = cgi.parse_qs(split_url[1], keep_blank_values=False)
 
-    start = time.time()
+    #start = time.time()
     response = session.get(url, params=params)
-    end = time.time()
+    #end = time.time()
 
-    #print("\n")
-    #print(response.text)
-    #print("\nTime: %ss\n" % (end - start))
     return response and response.json()
 
 def get_email_password_from_credentials():
@@ -95,29 +138,57 @@ def num_videos_watched(request_token, secret_request_token, VERIFIER):
 
 def auth_tokens_expired(session):
     print('checking auth tokens expiration...')
-    is_expired = get_api_resource(session, resource='/api/v1/user') == None
+    is_expired = get_api_resource(session, resource=TOKEN_TEST_URL) == None
     return is_expired
 
 
 def get_verifier_token(VERIFIER_FILE):
-    with open(VERIFIER_FILE, 'r') as file:
-        data = json.load(file)
-        if 'VERIFIER' not in data:
-            print('VERIFIER key not in', VERIFIER_FILE, 'json')
-        print('VERIFIER token received')
-        return data['VERIFIER']
+    if os.path.isfile(VERIFIER_FILE):
+        with open(VERIFIER_FILE, 'r') as file:
+            data = json.load(file)
+            if 'VERIFIER' not in data:
+                print('VERIFIER key not in', VERIFIER_FILE, 'json')
+            print('VERIFIER token received')
+            return data['VERIFIER']
+    else:
+        print('File does not exist')
+        return None
 
+def start_server(port):
+    print('Starting server')
+    callback_server = create_callback_server(port)
+    print('Server %s listening on %s'% (CALLBACK_BASE, port))
+    callback_server.serve_forever()
+
+# Has race condition for now
+def get_free_tcp_port():
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp.bind(('', 0))
+    addr, port = tcp.getsockname()
+    tcp.close()
+    return port
 
 def renew_tokens(service):
-    global CONSUMER_KEY, CONSUMER_SECRET, SERVER_URL
+    import os
+    # Remove files so as to wait for server to create them
+    if os.path.isfile(AUTH_TOKEN_FILE):
+        os.remove(AUTH_TOKEN_FILE)
+    if os.path.isfile(VERIFIER_FILE):
+        os.remove(VERIFIER_FILE)
+
+    port = get_free_tcp_port()
+    p = mp.Process(target=start_server, args=(port,))
+    p.start()
+
+    global CONSUMER_KEY, CONSUMER_SECRET, SERVER_URL, VERIFIER
     CONSUMER_KEY = CONSUMER_KEY or input("consumer key: ")
     CONSUMER_SECRET = CONSUMER_SECRET or input("consumer secret: ")
     SERVER_URL = SERVER_URL or input("server base url: ")
 
     # Create an OAuth1Service using rauth.
     request_token, secret_request_token = service.get_request_token(
-        params={'oauth_callback': 'http://%s:8000/' %
-            (CALLBACK_BASE)})
+        params={'oauth_callback': 'http://%s:%d/' %
+            (CALLBACK_BASE, port)})
     
     authorize_url = service.get_authorize_url(request_token)
     # Uncomment for manual authorization
@@ -125,9 +196,11 @@ def renew_tokens(service):
     authorize_url_sign_in(authorize_url)
     print('Waiting for server to respond and write verifier file ')
 
-    sleep(5)
-
-    VERIFIER = get_verifier_token(shared_constants.VERIFIER_FILE)
+    tries = 0
+    while(VERIFIER == None and tries < 20):
+        VERIFIER = get_verifier_token(VERIFIER_FILE)
+        tries += 1
+        sleep(1)
 
     print('VERIFIER', VERIFIER)
     print('request_token', request_token)
@@ -136,11 +209,13 @@ def renew_tokens(service):
     write_auth_tokens(request_token, secret_request_token, VERIFIER)
 
     params = {
-        'oauth_verifier': VERIFIER
+        OAUTH_VERIFIER_KEY: VERIFIER
     }
     session = service.get_auth_session(request_token, secret_request_token,
         params=params)
-    print('Session retrived from renewed tokens')
+    print('Session retrieved from renewed tokens')
+    # End the server process
+    p.terminate()
 
     return session
 
@@ -167,7 +242,7 @@ def authenticate():
             VERIFIER = data['VERIFIER']
             session = service.get_auth_session(request_token, secret_request_token,
                     params={
-                        'oauth_verifier': VERIFIER
+                        OAUTH_VERIFIER_KEY: VERIFIER
                     })
             if not auth_tokens_expired(session):
                 print('Auth tokens valid')
@@ -178,7 +253,10 @@ def authenticate():
         except:
             print('A problem occured using cached auth tokens. Renewing and recaching...')
             session = renew_tokens(service)
-
+            pass
+    else:
+        print('No', AUTH_TOKEN_FILE, 'found')
+        session = renew_tokens(service)
     print('Done')
     return session
 
