@@ -149,9 +149,6 @@ def write_auth_tokens(request_token, secret_request_token, VERIFIER):
         }, outfile)
         print('Renewed auth tokens cached')
 
-def num_videos_watched(request_token, secret_request_token, VERIFIER):
-    pass
-
 def auth_tokens_expired(session):
     print('checking auth tokens expiration...')
     is_expired = get_api_resource(session, resource=TOKEN_TEST_URL) == None
