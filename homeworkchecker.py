@@ -15,26 +15,24 @@ from selenium.webdriver.chrome.options import Options
 
 import shared_constants
 
-print(shared_constants.VERIFIER_FILE)
-
 CALLBACK_BASE = '127.0.0.1'
 VERIFIER = None
 AUTH_TOKEN_FILE='auth_tokens.json'
 CONSUMER_KEY = 'gMCe7huanHVnBdvW'
 CONSUMER_SECRET = 'hm7GXAVKytnQp4V2'
 SERVER_URL = 'http://www.khanacademy.org'
-DEFAULT_API_RESOURCE = '/api/v1/playlists'
+DEFAULT_API_RESOURCE = '/api/v1/user'
 VERIFIER = None
 CREDENTIALS_FILE='.credentials.json'
+TOKEN_TEST_URL = '/api/v1/playlists'
 
 # Make an authenticated API call using the given rauth session.
-def get_api_resource(session):
-    resource_url = input("Resource relative url (e.g. %s): " %
-        DEFAULT_API_RESOURCE) or DEFAULT_API_RESOURCE
+def get_api_resource(session, params={}, resource=DEFAULT_API_RESOURCE):
+    resource_url = resource or input("Resource relative url (e.g. %s): " %
+        DEFAULT_API_RESOURCE)
 
     url = SERVER_URL + resource_url
     split_url = url.split('?', 1)
-    params = {}
 
     # Separate out the URL's parameters, if applicable.
     if len(split_url) == 2:
@@ -45,9 +43,10 @@ def get_api_resource(session):
     response = session.get(url, params=params)
     end = time.time()
 
-    print("\n")
-    print(response.text)
-    print("\nTime: %ss\n" % (end - start))
+    #print("\n")
+    #print(response.text)
+    #print("\nTime: %ss\n" % (end - start))
+    return response and response.json()
 
 def get_email_password_from_credentials():
     # TODO: check if the file exists and that it is valid JSON
@@ -60,6 +59,7 @@ def get_email_password_from_credentials():
             return [None,None]
 
 def authorize_url_sign_in(authorize_url):
+    print('Running headless browser to log in')
     kaEmail_S = 'input[type=text]'
     kaPass_S = 'input[type=password]'
     kaLoginButton_S = '.button_1ilkz0g-o_O-common_hqgk90-o_O-large_10vyrhl-o_O-all_tca0ge'
@@ -78,8 +78,8 @@ def authorize_url_sign_in(authorize_url):
     driver.find_element_by_css_selector(kaLoginButton_S).click()
     sleep(5)
     # Accept oauth button
-    #driver.execute_script('document.querySelector(\'a\').click()')
     driver.find_element_by_css_selector('a').click()
+    print('Successful login')
 
 def write_auth_tokens(request_token, secret_request_token, VERIFIER):
     with open(AUTH_TOKEN_FILE, 'w') as outfile:
@@ -88,20 +88,63 @@ def write_auth_tokens(request_token, secret_request_token, VERIFIER):
             "secret_request_token":secret_request_token,
             "VERIFIER":VERIFIER
         }, outfile)
+        print('Renewed auth tokens written')
 
 def num_videos_watched(request_token, secret_request_token, VERIFIER):
     pass
 
-def auth_tokens_expired():
-    return True
+def auth_tokens_expired(session):
+    print('checking auth tokens expiration...')
+    is_expired = get_api_resource(session, resource='/api/v1/user') == None
+    return is_expired
+
 
 def get_verifier_token(VERIFIER_FILE):
     with open(VERIFIER_FILE, 'r') as file:
         data = json.load(file)
+        if 'VERIFIER' not in data:
+            print('VERIFIER key not in', VERIFIER_FILE, 'json')
+        print('VERIFIER token received')
         return data['VERIFIER']
 
-def run_tests():
+
+def renew_tokens(service):
     global CONSUMER_KEY, CONSUMER_SECRET, SERVER_URL
+    CONSUMER_KEY = CONSUMER_KEY or input("consumer key: ")
+    CONSUMER_SECRET = CONSUMER_SECRET or input("consumer secret: ")
+    SERVER_URL = SERVER_URL or input("server base url: ")
+
+    # Create an OAuth1Service using rauth.
+    request_token, secret_request_token = service.get_request_token(
+        params={'oauth_callback': 'http://%s:8000/' %
+            (CALLBACK_BASE)})
+    
+    authorize_url = service.get_authorize_url(request_token)
+    # Uncomment for manual authorization
+    # webbrowser.open(authorize_url)
+    authorize_url_sign_in(authorize_url)
+    print('Waiting for server to respond and write verifier file ')
+
+    sleep(5)
+
+    VERIFIER = get_verifier_token(shared_constants.VERIFIER_FILE)
+
+    print('VERIFIER', VERIFIER)
+    print('request_token', request_token)
+    print('secret_request_token', secret_request_token)
+
+    write_auth_tokens(request_token, secret_request_token, VERIFIER)
+
+    params = {
+        'oauth_verifier': VERIFIER
+    }
+    session = service.get_auth_session(request_token, secret_request_token,
+        params=params)
+    print('Session retrived from renewed tokens')
+
+    return session
+
+def authenticate():
     service = rauth.OAuth1Service(
            name='test',
            consumer_key=CONSUMER_KEY,
@@ -114,57 +157,46 @@ def run_tests():
     auth_token_file_exists = lambda: os.path.isfile(AUTH_TOKEN_FILE)
 
     session = None
-    if auth_token_file_exists() and not auth_tokens_expired():
-        print('here')
-        data = json.load(open(AUTH_TOKEN_FILE))
-        request_token = data['request_token'] 
-        secret_request_token = data['secret_request_token']
-        VERIFIER = data['VERIFIER']
-        # TODO: check if tokens are valid
-        print(request_token, secret_request_token, VERIFIER)
-        session = service.get_auth_session(request_token, secret_request_token,
-            params={
-                'oauth_verifier': VERIFIER
-            })
-    else: 
-        CONSUMER_KEY = CONSUMER_KEY or input("consumer key: ")
-        CONSUMER_SECRET = CONSUMER_SECRET or input("consumer secret: ")
-        SERVER_URL = SERVER_URL or input("server base url: ")
+    # Check if we have tokens that aren't expired
+    if auth_token_file_exists():
+        print('Found cached auth tokens') 
+        try:
+            data = json.load(open(AUTH_TOKEN_FILE))
+            request_token = data['request_token'] # <---------------------- NOT Invalid auth token here
+            secret_request_token = data['secret_request_token']
+            VERIFIER = data['VERIFIER']
+            session = service.get_auth_session(request_token, secret_request_token,
+                    params={
+                        'oauth_verifier': VERIFIER
+                    })
+            if not auth_tokens_expired(session):
+                print('Auth tokens valid')
+                return session
+            else:
+                print('Auth tokens invalid. Renewing and recaching...')
+                session = renew_tokens(service)
+        except:
+            print('A problem occured using cached auth tokens. Renewing and recaching...')
+            session = renew_tokens(service)
 
-        # Create an OAuth1Service using rauth.
-        request_token, secret_request_token = service.get_request_token(
-            params={'oauth_callback': 'http://%s:8000/' %
-                (CALLBACK_BASE)})
-        
-        authorize_url = service.get_authorize_url(request_token)
-        # Uncomment for manual authorization
-        # webbrowser.open(authorize_url)
-        authorize_url_sign_in(authorize_url)
-        print('Waiting for server to respond and write verifier file ')
+    print('Done')
+    return session
 
-        sleep(5)
 
-        VERIFIER = get_verifier_token(shared_constants.VERIFIER_FILE)
+def check_homework():
+    session = authenticate()
 
-        print('VERIFIER', VERIFIER)
-        print('request_token', request_token)
-        print('secret_request_token', secret_request_token)
+    # Repeatedly prompt user for a resource and make authenticated API calls.
+    if session is None:
+        print('Failed to authenticate')
+        return;
 
-        write_auth_tokens(request_token, secret_request_token, VERIFIER)
-
-        params = {
-            'oauth_verifier': VERIFIER
-        }
-        session = service.get_auth_session(request_token, secret_request_token,
-            params=params)
-
-        # Repeatedly prompt user for a resource and make authenticated API calls.
-        while(True):
-            get_api_resource(session)
+    while(True):
+        print(get_api_resource(session, resource=None))
 
 
 def main():
-    run_tests()
+    check_homework()
 
 if __name__ == "__main__":
     main()
