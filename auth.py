@@ -11,8 +11,10 @@ import multiprocessing as mp
 import server
 from time import sleep
 import api
+import logging
+import traceback
 
-TOKEN_TEST_URL = '/api/v1/user'
+LOGGER = logging.getLogger(__name__)
 
 def authenticate():
 
@@ -51,6 +53,8 @@ def authenticate():
                 session = renew_tokens(service, credentials_dict)
         except:
             print('A problem occured using cached auth tokens. Renewing and recaching...')
+            print(traceback.format_exc())
+            LOGGER.exception('Exception')
             session = renew_tokens(service, credentials_dict)
     else:
         print('No', fh.AUTH_TOKEN_FILE, 'found')
@@ -58,29 +62,35 @@ def authenticate():
     print('Done')
     return session
 
-def authorize_url_sign_in(authorize_url, credentials_dict):
-    print('Running headless browser to log in')
-    kaEmail_S = 'input[type=text]'
-    kaPass_S = 'input[type=password]'
-    kaLoginButton_S = '.button_1ilkz0g-o_O-common_hqgk90-o_O-large_10vyrhl-o_O-all_tca0ge'
+def authorize_url_sign_in(authorize_url, credentials_dict, server_process):
+    driver = None
+    try:
+        kaEmail_S = 'input[type=text]'
+        kaPass_S = 'input[type=password]'
+        kaLoginButton_S = '.button_1ilkz0g-o_O-common_hqgk90-o_O-large_10vyrhl-o_O-all_tca0ge'
 
-    chrome_options = Options()  
-    chrome_options.add_argument("--headless")
-    driver = webdriver.Chrome(chrome_options=chrome_options)
-    # Call oauth with authorize url
-    driver.get(authorize_url)
-    print('Getting authorize url')
+        chrome_options = Options()  
+        chrome_options.add_argument("--headless")
+        driver = webdriver.Chrome(chrome_options=chrome_options)
+        # Call oauth with authorize url
+        driver.get(authorize_url)
+        print('Getting authorize url')
+        print('Sending credential info')
+        driver.find_element_by_css_selector(kaEmail_S).send_keys(credentials_dict[fh.EMAIL_KEY])
+        driver.find_element_by_css_selector(kaPass_S).send_keys(credentials_dict[fh.PASSWORD_KEY])
+        driver.find_element_by_css_selector(kaLoginButton_S).click()
+        # Wait for the "Accept" page to load
+        sleep(5)
+        # Accept oauth button
+        driver.find_element_by_css_selector('a').click()
+        print('Successful login')
+    except:
+        server_process.terminate()
+        utils.log_exception(LOGGER)
+    finally:
+        if driver:
+            driver.close()
 
-    print('Sending credential info')
-    driver.find_element_by_css_selector(kaEmail_S).send_keys(credentials_dict[fh.EMAIL_KEY])
-    driver.find_element_by_css_selector(kaPass_S).send_keys(credentials_dict[fh.PASSWORD_KEY])
-    driver.find_element_by_css_selector(kaLoginButton_S).click()
-    # Wait for the "Accept" page to load
-    sleep(5)
-    # Accept oauth button
-    driver.find_element_by_css_selector('a').click()
-    print('Successful login')
-    driver.close()
 
 def start_server(port):
     print('Starting server')
@@ -106,11 +116,11 @@ def renew_tokens(service, credentials_dict):
     authorize_url = service.get_authorize_url(request_token)
     # Uncomment for manual authorization
     # webbrowser.open(authorize_url)
-    authorize_url_sign_in(authorize_url, credentials_dict)
+    authorize_url_sign_in(authorize_url, credentials_dict, server_process)
     print('Waiting for server to respond and write verifier file ')
 
     verifier = fh.get_verifier_token()
-    #verifier = fh.get_verifier_token_helper('verifier.json')
+
     if verifier == None:
         print('Server failed to receive and write verifier file')
         server_process.terminate()
@@ -135,5 +145,6 @@ def renew_tokens(service, credentials_dict):
 
 def auth_tokens_expired(session):
     print('checking auth tokens expiration...')
-    is_expired = api.get_api_resource(session, resource=TOKEN_TEST_URL) == None
+    khan_api = api.Api(session)
+    is_expired = khan_api.get_user() == None
     return is_expired

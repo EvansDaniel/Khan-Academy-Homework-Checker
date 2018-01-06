@@ -1,25 +1,54 @@
+import logging
+import utils
+
 DEFAULT_API_RESOURCE = '/api/v1/user'
 SERVER_URL = 'http://www.khanacademy.org'
 
-# Make an authenticated API call using the given rauth session.
-def get_api_resource(session, params={}, resource=DEFAULT_API_RESOURCE):
-    # TODO: remove input stuff
-    resource_url = resource or input("Resource relative url (e.g. %s): " %
-        DEFAULT_API_RESOURCE)
 
-    if not resource_url:
-        resource_url = DEFAULT_API_RESOURCE
 
-    url = SERVER_URL + resource_url
-    split_url = url.split('?', 1)
+LOGGER = logging.getLogger(__name__)
 
-    # Separate out the URL's parameters, if applicable.
-    if len(split_url) == 2:
-        url = split_url[0]
-        params = cgi.parse_qs(split_url[1], keep_blank_values=False)
 
-    #start = time.time()
-    response = session.get(url, params=params)
-    #end = time.time()
+class Api():
 
-    return response and response.json()
+    def __init__(self, session):
+        self.session = session
+        self.user = self.get_user()
+        self.kaid = self.user['kaid']
+        self.student_key = self.user['student_summary']['key']
+
+    def get_user(self, params={}):
+        response = self.get_response('/api/v1/user', params)
+        return response and response.json()
+
+    # Params: dt_start, dt_end
+    # Unstable internal api
+    def get_user_focus(self, params={}):
+        response = self.get_response('/api/internal/user/'+ self.student_key + '/focus', params)
+        return response and response.json()        
+
+    def get_user_videos(self, params={}):
+        response = self.get_response('/api/v1/user/videos', params)
+        return response and response.json()
+
+    def get_user_exercies(self, params={}):
+        response = self.get_response('/api/v1/user/exercises', params)
+        return response and response.json()   
+
+    # Params: dt_start, dt_end
+    # Unstable internal api
+    def get_user_progress(self, params={}):
+        response = self.get_response('/api/internal/user/' + self.kaid + '/progress', params)
+        return response and response.json()
+
+    def get_response(self, url, params={}):
+        try:
+            url = self.get_url(url)
+            print('GET', url)
+            response = self.session.get(url, params=params)
+        except:
+            utils.log_exception(LOGGER)
+        return response
+
+    def get_url(self, resource_url):
+        return SERVER_URL + resource_url
