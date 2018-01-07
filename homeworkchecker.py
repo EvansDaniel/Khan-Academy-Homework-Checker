@@ -47,6 +47,8 @@ class VideoChecker():
             minutes_watched = user_videos['students'][0]['videoMinutes']
         except:
             utils.log_exception(LOGGER)
+
+        print('total min watched', minutes_watched)
         return minutes_watched
 
     def minutes_left(self):
@@ -118,6 +120,12 @@ def check_homework():
     # Repeatedly prompt user for a resource and make authenticated API calls.
     if session is None:
         print('Failed to authenticate. Invalid session retreived')
+        LOGGER.error('Failed to authenticate session')
+        notif = notifications.Notifications()
+        notif.send_error_email(subject='Error with Homeworkchecker',
+            html='<p> Failed to authenticate session </p>',
+            body_text='Failed to authenticate session'
+        )
         return;
 
     khan_api = api.Api(session)
@@ -127,8 +135,9 @@ def check_homework():
     if exercise_checker.made_progress() and video_checker.has_watched_videos():
         pass
     else:
+        print(build_not_done_message(video_checker, exercise_checker))
         notif = notifications.Notifications()
-        notif.send_text(message=build_not_done_message(video_checker, exercise_checker))
+        #notif.send_text(message=build_not_done_message(video_checker, exercise_checker))
     
 
 def main():

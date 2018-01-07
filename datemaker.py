@@ -22,7 +22,7 @@ class DateMaker():
 
 	def offset_to_central(self,datetime_obj):
 		utc_offset = timedelta(hours=6)
-		return datetime_obj - utc_offset
+		return datetime_obj + utc_offset
 
 	def get_today_start_end(self):
 		today = self.today("UTC")
@@ -30,9 +30,12 @@ class DateMaker():
 		today_start = today.replace(hour=0, minute=0, second=0)
 		today_end = today.replace(hour=23, minute=59, second=59)
 
-		delta = timedelta(days=100)
-		#today_start -= delta
-		#today_end -= delta
+		# Khan api in UTC, so add 6 hours to the start time
+		# We want to track stuff that happened from 6 am UST to
+		# 5:59:59 am UST the next day
+		delta = timedelta(hours=6)
+		today_start += delta
+		today_end += delta
 
 		# Get the string formats
 		today_start_str = self.get_khan_date_format(today_start)
