@@ -14,6 +14,6 @@ This project detects if my sister has done her studying khan academy for the day
 
 ### System Requirements
 1. python3 and all packages in requirements.txt installed
-2. [chromedriver](https://sites.google.com/a/chromium.org/chromedriver/downloads) downloaded and in your path as well as its dependencies. On Debian these can be installed via `sudo apt install libgconf-2-4 libnss3-dev`
+2. [chromedriver](https://sites.google.com/a/chromium.org/chromedriver/downloads) downloaded and in your path as well as its dependencies. On Debian these can be installed via `sudo apt install libgconf-2-4 libnss3-dev`. Visit this [stackoverflow post](https://askubuntu.com/questions/510056/how-to-install-google-chrome) to learn how to install chrome (dep for chromedriver)
 3. A valid .credentials.json file in the working directory of the project (description coming soon)
 4. A configured default AWS profile on the system
