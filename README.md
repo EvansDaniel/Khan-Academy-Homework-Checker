@@ -2,6 +2,8 @@
 
 This project detects if my sister has done her studying khan academy for the day and remind her to do it if not. It will also tell my mom what my sister has and hasn't done on Khan Academy for the day, and remind her to remind my sister to do her studying. Might include functionality like automatically emailing myself if she hasn't done it as well. It will be using the [khan academy api](https://github.com/Khan/khan-api) as well as some internal apis used by khanacademy.org. This is allowed as per the README in the khan academy api repository
 
+This project has an involved setup process, but it suited my needs when I built it. As stated below, I plan to make a more user friendly version later on.
+
 ### High-Level Application Flow
 
 1. Application will attempt to perform the OAuth1.0 workflow (khan academy does not have 2.0 implemented)
