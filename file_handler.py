@@ -14,6 +14,8 @@ EMAIL_KEY = 'email'
 PASSWORD_KEY = 'password'
 CONSUMER_KEY = 'consumer_key'
 CONSUMER_SECRET_KEY = 'consumer_secret'
+STUDENT_NUMBER = 'student_number'
+PARENT_NUMBER = 'parent_number'
 
 def renew_files():
 	if os.path.isfile(AUTH_TOKEN_FILE):
@@ -39,7 +41,7 @@ def get_auth_tokens():
 	if os.path.isfile(AUTH_TOKEN_FILE):
 		try:
 			auth_dict = json.load(open(AUTH_TOKEN_FILE))
-			request_token = auth_dict[REQUEST_TOKEN_KEY] # <---------------------- NOT Invalid auth token here
+			request_token = auth_dict[REQUEST_TOKEN_KEY] 
 			secret_request_token = auth_dict[SECRET_REQUEST_TOKEN_KEY]
 			verifier = auth_dict[VERIFIER_KEY]
 			data = [request_token, secret_request_token, verifier]
@@ -81,6 +83,8 @@ def write_verifier(verifier):
 
 def valid_credentials_json(json_dict):
 	return EMAIL_KEY in json_dict and \
+                STUDENT_NUMBER in json_dict and \
+                PARENT_NUMBER in json_dict and \
                 PASSWORD_KEY in json_dict and \
                 CONSUMER_KEY in json_dict and \
                 CONSUMER_SECRET_KEY in json_dict
@@ -97,7 +101,9 @@ def get_credentials():
                         % (CREDENTIALS_FILE, EMAIL_KEY, 
                         	PASSWORD_KEY, 
                         	CONSUMER_KEY, 
-                        	CONSUMER_SECRET_KEY))
+                        	CONSUMER_SECRET_KEY, 
+                            STUDENT_NUMBER, 
+                            PARENT_NUMBER))
                     print('See README.md for necessary credentials')
                     return None
             except:

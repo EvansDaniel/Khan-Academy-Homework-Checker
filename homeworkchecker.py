@@ -113,7 +113,6 @@ def build_not_done_message(video_checker, exercise_checker):
     'Go to '+ video_stats + ' and ' + exercise_stats + ' to track your progress.'
 
 def check_homework():
-    print(datetime.now())
     PROBLEMS_CORRECT = 20
     MINUTES_WATCHED_THRESHOLD = 60
     session = auth.authenticate()
@@ -147,8 +146,8 @@ def check_homework():
         parent_msg = 'Sarah hasn\'t completed her khan academy yet. She has {} minutes of videos left to watch'.format(round(video_checker.minutes_left())) + \
         ' and {} problems left to answer correctly.'.format(exercise_checker.problems_correct_left()) + \
         ' You can learn more about what Sarah has been working on by visiting these pages (you must be logged in) and viewing today\'s activity: {} and {}'.format(video_stats, exercise_stats)
-        notif.send_text(message=parent_msg)
-        notif.send_text(message=student_msg)
+        notif.send_parent_text(message=parent_msg)
+        notif.send_student_text(message=student_msg)
 
 def main():
     logging.basicConfig(format='%(name)s:%(asctime)s:%(message)s', filename='homeworkchecker.log',level=logging.DEBUG)

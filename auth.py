@@ -13,6 +13,7 @@ from time import sleep
 import api
 import logging
 import traceback
+import notifications
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +21,14 @@ def authenticate():
 
     credentials_dict = fh.get_credentials()
     if credentials_dict is None:
-        print('Improper credentials from %s. Exiting...' % (fh.CREDENTIALS_FILE))
+        err_str = 'Improper credentials from %s. Exiting...' % (fh.CREDENTIALS_FILE)
+        print(err_str)
+        LOGGER.error(err_str)
+        notif = notifications.Notifications()
+        notif.send_error_email(subject='Error with Homeworkchecker',
+            html='<p> '+ err_str + ' </p>',
+            body_text=err_str
+        )
         sys.exit(1)
 
     consumer_key = credentials_dict[fh.CONSUMER_KEY]
