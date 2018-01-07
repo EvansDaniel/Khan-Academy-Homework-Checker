@@ -113,7 +113,8 @@ def build_not_done_message(video_checker, exercise_checker):
     'Go to '+ video_stats + ' and ' + exercise_stats + ' to track your progress.'
 
 def check_homework():
-    PROBLEMS_CORRECT = 25
+    print(datetime.now())
+    PROBLEMS_CORRECT = 20
     MINUTES_WATCHED_THRESHOLD = 60
     session = auth.authenticate()
 
@@ -133,12 +134,21 @@ def check_homework():
     video_checker = VideoChecker(khan_api, minutes_watched_threshold=MINUTES_WATCHED_THRESHOLD)
     exercise_checker = ExcerciseChecker(khan_api, num_problems_correct=PROBLEMS_CORRECT)
     if exercise_checker.made_progress() and video_checker.has_watched_videos():
+        # Tell Sarah good job?
+        # And mom that Sarah has completed it?
         pass
     else:
-        print(build_not_done_message(video_checker, exercise_checker))
         notif = notifications.Notifications()
-        #notif.send_text(message=build_not_done_message(video_checker, exercise_checker))
-    
+        video_stats = 'https://www.khanacademy.org/profile/sarahleeannpate/vital-statistics/videos'
+        exercise_stats = 'https://www.khanacademy.org/profile/sarahleeannpate/vital-statistics/focus'
+        student_msg = 'You have not completed your khan academy yet. You have {} minutes of videos '.format(round(video_checker.minutes_left())) + \
+         'left and {} problems left to answer correctly.'.format(exercise_checker.problems_correct_left()) + \
+         ' You can track your progress by visiting these pages (you must be logged in) and viewing today\'s activity: {} and {}'.format(video_stats, exercise_stats)
+        parent_msg = 'Sarah hasn\'t completed her khan academy yet. She has {} minutes of videos left to watch'.format(round(video_checker.minutes_left())) + \
+        ' and {} problems left to answer correctly.'.format(exercise_checker.problems_correct_left()) + \
+        ' You can learn more about what Sarah has been working on by visiting these pages (you must be logged in) and viewing today\'s activity: {} and {}'.format(video_stats, exercise_stats)
+        notif.send_text(message=parent_msg)
+        notif.send_text(message=student_msg)
 
 def main():
     logging.basicConfig(format='%(name)s:%(asctime)s:%(message)s', filename='homeworkchecker.log',level=logging.DEBUG)
