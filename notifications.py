@@ -13,7 +13,6 @@ class Notifications():
 		self.AWS_REGION = "us-east-1"
 		self.CHARSET = "UTF-8"
 		self.credentials = fh.get_credentials()
-		pass
 
 	def send_student_text(self, message):
 		try:
@@ -23,7 +22,11 @@ class Notifications():
 
 	def send_parent_text(self, message):
 		try:
-			self.send_text(self.credentials['parent_number'], message=message)
+			if isinstance(self.credentials['parent_number'], list):
+				for number in self.credentials['parent_number']:
+					self.send_text(number, message=message)
+			else:
+				self.send_text(self.credentials['parent_number'], message=message)
 		except:
 			utils.log_exception(LOGGER)
 
@@ -34,12 +37,12 @@ class Notifications():
 				PhoneNumber=number,
 				Message=message
 			)
-			pass
+			LOGGER.info('Text sent to {}!'.format(number));
 		except:
 			utils.log_exception(LOGGER)
 
 
-	def send_error_email(self, subject, html, body_text=''):
+	def send_email(self, subject, html, body_text=''):
 		client = boto3.client('ses', region_name=self.AWS_REGION)
 		# Reading credentials file could fail
 		# And these keys are optional

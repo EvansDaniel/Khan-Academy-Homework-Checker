@@ -25,7 +25,7 @@ def authenticate():
         print(err_str)
         LOGGER.error(err_str)
         notif = notifications.Notifications()
-        notif.send_error_email(subject='Error with Homeworkchecker',
+        notif.send_email(subject='Error with Homeworkchecker',
             html='<p> '+ err_str + ' </p>',
             body_text=err_str
         )

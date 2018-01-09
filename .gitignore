@@ -3,3 +3,4 @@ __pycache__/
 .credentials.json
 my_consumer_stuff.txt
 *.pyc
+*.log

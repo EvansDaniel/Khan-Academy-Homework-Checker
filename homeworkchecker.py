@@ -122,7 +122,7 @@ def check_homework():
         print('Failed to authenticate. Invalid session retreived')
         LOGGER.error('Failed to authenticate session')
         notif = notifications.Notifications()
-        notif.send_error_email(subject='Error with Homeworkchecker',
+        notif.send_email(subject='Error with Homeworkchecker',
             html='<p> Failed to authenticate session </p>',
             body_text='Failed to authenticate session'
         )
@@ -148,6 +148,7 @@ def check_homework():
         ' You can learn more about what Sarah has been working on by visiting these pages (you must be logged in) and viewing today\'s activity: {} and {}'.format(video_stats, exercise_stats)
         notif.send_parent_text(message=parent_msg)
         notif.send_student_text(message=student_msg)
+        notif.send_email(subject='Sarah\'s Khan Academy', html='<p>{}</p>'.format(parent_msg), body_text=parent_msg)
 
 def main():
     logging.basicConfig(format='%(name)s:%(asctime)s:%(message)s', filename='homeworkchecker.log',level=logging.DEBUG)

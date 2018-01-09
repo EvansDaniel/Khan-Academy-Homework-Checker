@@ -15,7 +15,7 @@ def log_exception(logger):
 	logger.exception('exception')
 	print(traceback.format_exc())
 	notif = notifications.Notifications()
-	notif.send_error_email(subject='Error with Homeworkchecker',
+	notif.send_email(subject='Error with Homeworkchecker',
 		html='<p>' + traceback.format_exc() + '</p>',
 		body_text=traceback.format_exc()
 	)
