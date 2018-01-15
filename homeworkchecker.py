@@ -146,9 +146,8 @@ def check_homework():
         parent_msg = 'Sarah hasn\'t completed her khan academy yet. She has {} minutes of videos left to watch'.format(round(video_checker.minutes_left())) + \
         ' and {} problems left to answer correctly.'.format(exercise_checker.problems_correct_left()) + \
         ' You can learn more about what Sarah has been working on by visiting these pages (you must be logged in) and viewing today\'s activity: {} and {}'.format(video_stats, exercise_stats)
-        notif.send_parent_text(message=parent_msg)
-        notif.send_student_text(message=student_msg)
-        notif.send_email(subject='Sarah\'s Khan Academy', html='<p>{}</p>'.format(parent_msg), body_text=parent_msg)
+        notif.send_parent_email(subject='Sarah\'s Khan Academy', html='<p>{}</p>'.format(parent_msg), body_text=parent_msg)
+        notif.send_student_email(subject='Sarah\'s Khan Academy', html='<p>{}</p>'.format(parent_msg), body_text=parent_msg)
 
 def main():
     logging.basicConfig(format='%(name)s:%(asctime)s:%(message)s', filename='homeworkchecker.log',level=logging.DEBUG)

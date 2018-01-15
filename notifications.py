@@ -16,17 +16,21 @@ class Notifications():
 
 	def send_student_text(self, message):
 		try:
-			self.send_text(self.credentials['student_number'], message=message)
+			if isinstance(self.credentials[fh.STUDENT_NUMBER], list):
+				for number in self.credentials[fh.STUDENT_NUMBER]:
+					self.send_text(number, message=message)
+			else:
+				self.send_text(self.credentials[fh.STUDENT_NUMBER], message=message)
 		except:
 			utils.log_exception(LOGGER)
 
 	def send_parent_text(self, message):
 		try:
-			if isinstance(self.credentials['parent_number'], list):
-				for number in self.credentials['parent_number']:
+			if isinstance(self.credentials[fh.PARENT_NUMBER], list):
+				for number in self.credentials[fh.PARENT_NUMBER]:
 					self.send_text(number, message=message)
 			else:
-				self.send_text(self.credentials['parent_number'], message=message)
+				self.send_text(self.credentials[fh.PARENT_NUMBER], message=message)
 		except:
 			utils.log_exception(LOGGER)
 
@@ -38,19 +42,28 @@ class Notifications():
 				Message=message
 			)
 			LOGGER.info('Text sent to {}!'.format(number));
+			print('Text sent to {}'.format(number));
 		except:
 			utils.log_exception(LOGGER)
 
+	def send_student_email(self, subject, html, body_text=''):
+		if not self.credentials or fh.STUDENT_NUMBER not in self.credentials:
+			return
+		self.send_email(subject, html, body_text, self.credentials[fh.STUDENT_NUMBER])
 
-	def send_email(self, subject, html, body_text=''):
-		client = boto3.client('ses', region_name=self.AWS_REGION)
+	def send_parent_email(self, subject, html , body_text): 
+		if not self.credentials or fh.PARENT_NUMBER not in self.credentials:
+			return
+		self.send_email(subject, html, body_text, self.credentials[fh.PARENT_NUMBER])
+
+	def send_email(self, subject, html, body_text='', recipient=None):
 		# Reading credentials file could fail
 		# And these keys are optional
-		if not self.credentials or 'recipient' not in self.credentials or 'sender' not in self.credentials:
+		if not self.credentials or fh.SENDER not in self.credentials:
 			return;
 		
-		recipient = self.credentials['recipient']
-		sender = self.credentials['sender']
+		sender = self.credentials[fh.SENDER]
+		recipient = recipient or self.credentials[fh.ADMIN]
 
 		body_html = """
 		<html>
@@ -60,6 +73,14 @@ class Notifications():
 			</body>
 		</html>
 		"""  
+		if isinstance(recipient, list):
+			for number in recipient:
+				self._send_email_helper(subject, html, body_text, sender, number)
+		else:
+			self._send_email_helper(subject, html, body_text, sender, recipient)
+
+	def _send_email_helper(self, subject, html, body_text, sender, recipient):
+		client = boto3.client('ses', region_name=self.AWS_REGION)
 		try:
 			#Provide the contents of the email.
 			
@@ -73,7 +94,7 @@ class Notifications():
 					'Body': {
 						'Html': {
 							'Charset': self.CHARSET,
-							'Data': body_html,
+							'Data': html,
 						},
 						'Text': {
 							'Charset': self.CHARSET,

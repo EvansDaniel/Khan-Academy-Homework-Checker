@@ -14,8 +14,10 @@ EMAIL_KEY = 'email'
 PASSWORD_KEY = 'password'
 CONSUMER_KEY = 'consumer_key'
 CONSUMER_SECRET_KEY = 'consumer_secret'
-STUDENT_NUMBER = 'student_number'
-PARENT_NUMBER = 'parent_number'
+STUDENT_NUMBER = 'student_messenger'
+PARENT_NUMBER = 'parent_messenger'
+SENDER='sender'
+ADMIN='admin'
 
 def renew_files():
 	if os.path.isfile(AUTH_TOKEN_FILE):
