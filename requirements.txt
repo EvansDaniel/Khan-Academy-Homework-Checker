@@ -50,7 +50,7 @@ Keras==2.1.1
 keyring==10.5.1
 language-selector==0.1
 louis==2.6.4
-lxml==4.1.1
+lxml==4.6.2
 Mako==1.0.3
 Markdown==2.6.9
 MarkupSafe==1.0
@@ -214,7 +214,7 @@ Keras==2.1.1
 keyring==10.5.1
 language-selector==0.1
 louis==2.6.4
-lxml==4.1.1
+lxml==4.6.2
 Mako==1.0.3
 Markdown==2.6.9
 MarkupSafe==1.0
