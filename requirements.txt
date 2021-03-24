@@ -107,7 +107,7 @@ rauth==0.7.3
 reportlab==3.3.0
 requests==2.18.4
 requests-oauthlib==0.8.0
-rsa==3.4.2
+rsa==4.1
 s3transfer==0.1.12
 savReaderWriter==3.4.2
 scikit-image==0.13.1
@@ -272,7 +272,7 @@ rauth==0.7.3
 reportlab==3.3.0
 requests==2.18.4
 requests-oauthlib==0.8.0
-rsa==3.4.2
+rsa==4.1
 s3transfer==0.1.12
 savReaderWriter==3.4.2
 scikit-image==0.13.1
