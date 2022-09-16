@@ -51,7 +51,7 @@ keyring==10.5.1
 language-selector==0.1
 louis==2.6.4
 lxml==4.1.1
-Mako==1.0.3
+Mako==1.2.2
 Markdown==2.6.9
 MarkupSafe==1.0
 matplotlib==2.1.0
@@ -215,7 +215,7 @@ keyring==10.5.1
 language-selector==0.1
 louis==2.6.4
 lxml==4.1.1
-Mako==1.0.3
+Mako==1.2.2
 Markdown==2.6.9
 MarkupSafe==1.0
 matplotlib==2.1.0
