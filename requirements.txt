@@ -8,7 +8,7 @@ boto3==1.5.9
 botocore==1.8.23
 branca==0.2.0
 Brlapi==0.6.4
-certifi==2017.11.5
+certifi==2022.12.7
 cffi==1.11.2
 chardet==3.0.4
 cheat==2.2.2
@@ -171,7 +171,7 @@ boto3==1.5.9
 botocore==1.8.23
 branca==0.2.0
 Brlapi==0.6.4
-certifi==2017.11.5
+certifi==2022.12.7
 cffi==1.11.2
 chardet==3.0.4
 cheat==2.2.2
